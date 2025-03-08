@@ -6,29 +6,42 @@ import numpy as np
 import queue
 import os
 
-# Load Vosk ASR Model
-MODEL_PATH = "model"  # Ensure the Vosk model is downloaded and placed in this folder
+# Define Vosk Model Path (Using a Smaller Model)
+MODEL_PATH = "model/vosk-model-small-en-us"
 
-if not os.path.exists(MODEL_PATH):
-    st.error("⚠️ Vosk model not found! Please download and place it in the 'model' folder.")
+# Check if Model Exists
+if not os.path.exists(MODEL_PATH) or not os.listdir(MODEL_PATH):
+    st.error("⚠️ Vosk model not found! Please upload the small Vosk model to the 'model/' folder.")
+    st.stop()  # Stop execution if model is missing
 else:
-    st.success("✅ Vosk model loaded successfully!")
+    st.success("✅ Small Vosk model loaded successfully!")
 
-# Create a session state to manage stop button
+# Session state for stopping transcription
 if "stop_transcription" not in st.session_state:
     st.session_state.stop_transcription = False
 
-# Define Audio Processing Class
+# Define Speech Recognition Processor
 class SpeechRecognitionProcessor(AudioProcessorBase):
     def __init__(self):
         self.q = queue.Queue()
-        self.model = vosk.Model(MODEL_PATH)  # Load Vosk model inside the class
+
+        # Log model path
+        st.write(f"🔍 Checking model path: {MODEL_PATH}")
+
+        # Try loading the model
+        try:
+            self.model = vosk.Model(MODEL_PATH)
+            st.success("✅ Vosk model successfully loaded!")
+        except Exception as e:
+            st.error(f"❌ Failed to load Vosk model: {str(e)}")
+            st.stop()
+        
         self.rec = vosk.KaldiRecognizer(self.model, 16000)
         self.transcriptions = []
 
     def recv(self, frame):
         if st.session_state.stop_transcription:
-            return frame  # Stop processing if the user clicks "Stop"
+            return frame  # Stop processing if user clicks "Stop"
 
         audio_data = frame.to_ndarray()
         self.q.put(audio_data)
@@ -47,9 +60,9 @@ class SpeechRecognitionProcessor(AudioProcessorBase):
         return ""
 
 # Streamlit UI
-st.title("🎤 ChronoVox: Real-Time Speech Transcription")
+st.title("🎤 ChronoVox: Real-Time Speech Transcription (Small Model)")
 
-st.write("This app captures speech from your microphone and transcribes it in real-time using Vosk ASR.")
+st.write("This app captures speech from your microphone and transcribes it in real-time using the **smaller Vosk ASR model**.")
 
 # WebRTC Audio Stream
 webrtc_ctx = webrtc_streamer(
