@@ -8,11 +8,12 @@ import numpy as np
 import queue
 from streamlit_webrtc import webrtc_streamer, WebRtcMode, AudioProcessorBase
 
-# Define the Model Directory and URL
+# Define paths
 MODEL_DIR = "model"
 MODEL_PATH = os.path.join(MODEL_DIR, "vosk-model-small-en-us")
 MODEL_ZIP = os.path.join(MODEL_DIR, "vosk-model-small-en-us.zip")
 MODEL_URL = "https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip"
+TRANSCRIPTION_FILE = "transcription.txt"
 
 # Function to Download and Extract the Model
 def download_vosk_model():
@@ -52,7 +53,6 @@ if "stop_transcription" not in st.session_state:
 class SpeechRecognitionProcessor(AudioProcessorBase):
     def __init__(self):
         self.q = queue.Queue()
-
         try:
             self.model = vosk.Model(MODEL_PATH)
             st.success("✅ Vosk model successfully loaded!")
@@ -79,8 +79,14 @@ class SpeechRecognitionProcessor(AudioProcessorBase):
                 text = result.get("text", "")
                 if text:
                     self.transcriptions.append(text)
+                    self.save_transcription(text)  # Save transcription to file
                     return text
         return ""
+
+    def save_transcription(self, text):
+        """Save transcribed text to a file"""
+        with open(TRANSCRIPTION_FILE, "a") as f:
+            f.write(text + "\n")
 
 # Streamlit UI
 st.title("🎤 ChronoVox: Real-Time Speech Transcription (Small Model)")
@@ -110,3 +116,15 @@ if webrtc_ctx.audio_processor and not st.session_state.stop_transcription:
 if webrtc_ctx.audio_processor:
     st.subheader("📜 Full Transcription History")
     st.write(" ".join(webrtc_ctx.audio_processor.transcriptions))
+
+# Allow users to download the transcription file
+if os.path.exists(TRANSCRIPTION_FILE):
+    with open(TRANSCRIPTION_FILE, "r") as f:
+        transcription_content = f.read()
+    
+    st.download_button(
+        label="📥 Download Transcription",
+        data=transcription_content,
+        file_name="transcription.txt",
+        mime="text/plain",
+    )
