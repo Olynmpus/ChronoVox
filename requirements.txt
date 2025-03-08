@@ -1,8 +1,6 @@
-streamlit
-sounddevice
-pyaudio
-numpy
-wave
+streamlit-webrtc
 vosk
+wave
+numpy
 requests
 zipfile36
