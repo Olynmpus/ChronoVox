@@ -4,23 +4,32 @@ import vosk
 import json
 import numpy as np
 import queue
-import wave
 import os
 
-# Load the Vosk ASR Model
-MODEL_PATH = "model"  # Ensure you have a Vosk model downloaded
+# Load Vosk ASR Model
+MODEL_PATH = "model"  # Ensure the Vosk model is downloaded and placed in this folder
+
 if not os.path.exists(MODEL_PATH):
-    st.error("Vosk model not found. Please download and place it in the 'model' folder.")
+    st.error("⚠️ Vosk model not found! Please download and place it in the 'model' folder.")
 else:
-    asr_model = vosk.Model(MODEL_PATH)
+    st.success("✅ Vosk model loaded successfully!")
+
+# Create a session state to manage stop button
+if "stop_transcription" not in st.session_state:
+    st.session_state.stop_transcription = False
 
 # Define Audio Processing Class
 class SpeechRecognitionProcessor(AudioProcessorBase):
     def __init__(self):
         self.q = queue.Queue()
-        self.rec = vosk.KaldiRecognizer(asr_model, 16000)
+        self.model = vosk.Model(MODEL_PATH)  # Load Vosk model inside the class
+        self.rec = vosk.KaldiRecognizer(self.model, 16000)
+        self.transcriptions = []
 
     def recv(self, frame):
+        if st.session_state.stop_transcription:
+            return frame  # Stop processing if the user clicks "Stop"
+
         audio_data = frame.to_ndarray()
         self.q.put(audio_data)
         return frame
@@ -30,7 +39,10 @@ class SpeechRecognitionProcessor(AudioProcessorBase):
             audio_data = self.q.get()
             if self.rec.AcceptWaveform(audio_data.tobytes()):
                 result = json.loads(self.rec.Result())
-                return result.get("text", "")
+                text = result.get("text", "")
+                if text:
+                    self.transcriptions.append(text)
+                    return text
 
         return ""
 
@@ -47,7 +59,18 @@ webrtc_ctx = webrtc_streamer(
     media_stream_constraints={"video": False, "audio": True},
 )
 
-if webrtc_ctx.audio_processor:
+# Stop Button
+if st.button("🛑 Stop Transcription"):
+    st.session_state.stop_transcription = True
+    st.success("🔴 Transcription Stopped!")
+
+# Display real-time transcription
+if webrtc_ctx.audio_processor and not st.session_state.stop_transcription:
     transcription = webrtc_ctx.audio_processor.process_audio()
     if transcription:
-        st.write("📝 **Transcription:** ", transcription)
+        st.write("📝 **Live Transcription:** ", transcription)
+
+# Show full transcription history
+if webrtc_ctx.audio_processor:
+    st.subheader("📜 Full Transcription History")
+    st.write(" ".join(webrtc_ctx.audio_processor.transcriptions))
