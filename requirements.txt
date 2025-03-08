@@ -1,6 +1,6 @@
+streamlit
 streamlit-webrtc
 vosk
-wave
 numpy
 requests
-zipfile36
+wave
