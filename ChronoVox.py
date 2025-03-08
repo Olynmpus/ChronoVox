@@ -1,20 +1,41 @@
 import streamlit as st
-from streamlit_webrtc import webrtc_streamer, WebRtcMode, AudioProcessorBase
+import os
+import subprocess
 import vosk
 import json
 import numpy as np
 import queue
-import os
+from streamlit_webrtc import webrtc_streamer, WebRtcMode, AudioProcessorBase
 
-# Define Vosk Model Path (Using a Smaller Model)
-MODEL_PATH = "model/vosk-model-small-en-us"
+# Define the Model Directory and URL
+MODEL_DIR = "model"
+MODEL_PATH = os.path.join(MODEL_DIR, "vosk-model-small-en-us")
+MODEL_URL = "https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip"
 
-# Check if Model Exists
+# Function to Download and Extract the Model
+def download_vosk_model():
+    st.warning("🚀 Downloading the Vosk model. Please wait...")
+    
+    os.makedirs(MODEL_DIR, exist_ok=True)  # Create directory if not exists
+    
+    # Download model
+    zip_path = os.path.join(MODEL_DIR, "vosk-model-small-en-us.zip")
+    subprocess.run(["wget", MODEL_URL, "-O", zip_path], check=True)
+    
+    # Extract model
+    subprocess.run(["unzip", zip_path, "-d", MODEL_DIR], check=True)
+    
+    # Rename extracted folder
+    os.rename(os.path.join(MODEL_DIR, "vosk-model-small-en-us-0.15"), MODEL_PATH)
+    
+    # Remove the zip file
+    os.remove(zip_path)
+
+# Check if Model Exists, Download if Missing
 if not os.path.exists(MODEL_PATH) or not os.listdir(MODEL_PATH):
-    st.error("⚠️ Vosk model not found! Please upload the small Vosk model to the 'model/' folder.")
-    st.stop()  # Stop execution if model is missing
-else:
-    st.success("✅ Small Vosk model loaded successfully!")
+    download_vosk_model()
+
+st.success("✅ Vosk model is ready!")
 
 # Session state for stopping transcription
 if "stop_transcription" not in st.session_state:
@@ -25,10 +46,6 @@ class SpeechRecognitionProcessor(AudioProcessorBase):
     def __init__(self):
         self.q = queue.Queue()
 
-        # Log model path
-        st.write(f"🔍 Checking model path: {MODEL_PATH}")
-
-        # Try loading the model
         try:
             self.model = vosk.Model(MODEL_PATH)
             st.success("✅ Vosk model successfully loaded!")
@@ -56,7 +73,6 @@ class SpeechRecognitionProcessor(AudioProcessorBase):
                 if text:
                     self.transcriptions.append(text)
                     return text
-
         return ""
 
 # Streamlit UI
