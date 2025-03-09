@@ -1,7 +1,6 @@
 import os
 import queue
 import json
-import wave
 import av
 import streamlit as st
 from streamlit_webrtc import webrtc_streamer, WebRtcMode, AudioProcessorBase
@@ -9,7 +8,6 @@ import vosk
 
 # ---- CONFIG ----
 MODEL_PATH = "./Voice2Text"  # Ensure the correct path in your GitHub repo
-OUTPUT_FILE = "transcription.txt"  # Store transcriptions
 
 # ---- DOWNLOAD CHECK ----
 if not os.path.exists(MODEL_PATH):
@@ -18,6 +16,17 @@ if not os.path.exists(MODEL_PATH):
 
 # Load the Vosk model
 asr_model = vosk.Model(MODEL_PATH)
+
+# ---- STREAMLIT UI ----
+st.title("🗣️ Meeting Speech Recorder")
+st.write("This app captures speech from your microphone and transcribes it using Vosk. Your transcription is saved instantly.")
+
+# User enters their name
+user_name = st.text_input("Enter Your Name (Unique ID):", max_chars=50).strip()
+if user_name:
+    OUTPUT_FILE = f"{user_name.replace(' ', '_')}_transcription.txt"
+else:
+    OUTPUT_FILE = "transcription.txt"  # Default if no name is entered
 
 # ---- AUDIO PROCESSOR ----
 class SpeechRecognitionProcessor(AudioProcessorBase):
@@ -37,33 +46,37 @@ class SpeechRecognitionProcessor(AudioProcessorBase):
 
             if text:
                 self.transcriptions.append(text)
+
+                # 🔹 Save instantly with user name as identifier
                 with open(OUTPUT_FILE, "a") as f:
-                    f.write(text + "\n")
+                    f.write(f"{user_name}: {text}\n")
 
         return frame
 
-# ---- STREAMLIT UI ----
-st.title("🗣️ Voice2Text: Real-time Speech-to-Text Transcription")
-st.write("This app captures speech from your microphone and transcribes it using Vosk.")
+# ---- START STREAMING ----
+if user_name:
+    webrtc_ctx = webrtc_streamer(
+        key="speech-recognition",
+        mode=WebRtcMode.SENDRECV,
+        audio_processor_factory=SpeechRecognitionProcessor,
+        media_stream_constraints={"audio": True, "video": False},
+        async_processing=True,
+    )
 
-# Start WebRTC
-webrtc_ctx = webrtc_streamer(
-    key="speech-recognition",
-    mode=WebRtcMode.SENDRECV,
-    audio_processor_factory=SpeechRecognitionProcessor,
-    media_stream_constraints={"audio": True, "video": False},
-    async_processing=True,
-)
+    # Stop Button
+    if st.button("⏹️ Stop Recording"):
+        if webrtc_ctx:
+            webrtc_ctx.stop()
+        st.success(f"Recording stopped. Transcription saved as **{OUTPUT_FILE}**.")
 
-# Stop Button
-if st.button("Stop Recording"):
-    webrtc_ctx.stop()
-    st.success("Recording stopped.")
+    # Display Transcription
+    st.subheader("📜 Live Transcription:")
+    if os.path.exists(OUTPUT_FILE):
+        with open(OUTPUT_FILE, "r") as f:
+            transcription_text = f.read()
+            st.text_area("Transcription", transcription_text, height=250)
 
-# Display Transcription
-st.subheader("Live Transcription:")
-if os.path.exists(OUTPUT_FILE):
-    with open(OUTPUT_FILE, "r") as f:
-        st.text_area("Transcription", f.read(), height=200)
+    st.write(f"📄 Your transcription is continuously saved in `{OUTPUT_FILE}`.")
 
-st.write("📄 The transcription is saved in `transcription.txt` for later processing.")
+else:
+    st.warning("Please enter your name before starting the recording.")
