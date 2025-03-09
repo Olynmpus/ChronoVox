@@ -1,5 +1,5 @@
 US English model for mobile Vosk applications
-
+vosk-model-small-en-us-0.15
 Copyright 2020 Alpha Cephei Inc
 
 Accuracy: 10.38 (tedlium test) 9.85 (librispeech test-clean)
