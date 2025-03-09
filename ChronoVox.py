@@ -8,8 +8,9 @@ import vosk
 
 # ---- CONFIG ----
 MODEL_PATH = "./Voice2Text"  # Ensure the correct path in your GitHub repo
+DEFAULT_SAVE_FOLDER = "Transcriptions"  # Default folder to store transcripts
 
-# ---- DOWNLOAD CHECK ----
+# ---- CHECK VOSK MODEL ----
 if not os.path.exists(MODEL_PATH):
     st.error("Vosk model not found! Please ensure it's uploaded to the correct folder in your GitHub repository.")
     st.stop()
@@ -23,10 +24,21 @@ st.write("This app captures speech from your microphone and transcribes it using
 
 # User enters their name
 user_name = st.text_input("Enter Your Name (Unique ID):", max_chars=50).strip()
+
+# User can specify a custom folder
+save_folder = st.text_input("Enter folder name to save transcriptions (leave blank for default):", "").strip()
+
+# Use default folder if none specified
+if not save_folder:
+    save_folder = DEFAULT_SAVE_FOLDER
+
+# Ensure folder exists
+os.makedirs(save_folder, exist_ok=True)
+
 if user_name:
-    OUTPUT_FILE = f"{user_name.replace(' ', '_')}_transcription.txt"
+    OUTPUT_FILE = os.path.join(save_folder, f"{user_name.replace(' ', '_')}_transcription.txt")
 else:
-    OUTPUT_FILE = "transcription.txt"  # Default if no name is entered
+    OUTPUT_FILE = os.path.join(save_folder, "transcription.txt")  # Default if no name is entered
 
 # ---- AUDIO PROCESSOR ----
 class SpeechRecognitionProcessor(AudioProcessorBase):
@@ -67,7 +79,7 @@ if user_name:
     if st.button("⏹️ Stop Recording"):
         if webrtc_ctx:
             webrtc_ctx.stop()
-        st.success(f"Recording stopped. Transcription saved as **{OUTPUT_FILE}**.")
+        st.success(f"Recording stopped. Transcription saved in `{OUTPUT_FILE}`.")
 
     # Display Transcription
     st.subheader("📜 Live Transcription:")
